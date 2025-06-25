@@ -1,0 +1,58 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import string
+import nltk
+from nltk.corpus import stopwords
+from nltk.stem.porter import PorterStemmer
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.model_selection import train_test_split
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.linear_model import LogisticRegression
+from sklearn import metrics
+import joblib
+df = pd.read_csv("spam.csv", encoding='latin-1')[['v1', 'v2']]
+df.columns = ['label', 'text']
+df.head()
+sns.countplot(data=df, x='label')
+plt.title("Distribution of Spam vs Ham")
+plt.show()
+nltk.download('stopwords')
+ps = PorterStemmer()
+stop_words = stopwords.words('english')
+
+def transform_text(text):
+    text = text.lower()
+    text = ''.join([char for char in text if char not in string.punctuation])
+    words = text.split()
+    words = [ps.stem(word) for word in words if word not in stop_words]
+    return ' '.join(words)
+
+df['cleaned'] = df['text'].apply(transform_text)
+df.head()
+tfidf = TfidfVectorizer(max_features=3000)
+X = tfidf.fit_transform(df['cleaned']).toarray()
+y = df['label'].map({'ham':0, 'spam': 1 })
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+nb = MultinomialNB()
+nb.fit(X_train, y_train)
+nb_pred = nb.predict(X_test)
+
+print("Naive Bayes Accuracy:", metrics.accuracy_score(y_test, nb_pred))
+
+# Logistic Regression
+lr = LogisticRegression()
+lr.fit(X_train, y_train)
+lr_pred = lr.predict(X_test)
+
+print("Logistic Regression Accuracy:", metrics.accuracy_score(y_test, lr_pred))
+sample = ["Hey, can we meet tomorrow?", "WINNER! You've been selected for $1000 cash."]
+sample_clean = [transform_text(msg) for msg in sample]
+sample_vect = tfidf.transform(sample_clean).toarray()
+pred = nb.predict(sample_vect)
+
+for i in range(len(sample)):
+    print(f"'{sample[i]}' → {'SPAM' if pred[i]==1 else 'HAM'}")
+    joblib.dump(nb, 'spam_detector_model.pkl')
+joblib.dump(tfidf, 'vectorizer.pkl')
