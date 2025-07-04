@@ -1,0 +1,57 @@
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+
+import zipfile
+import os
+
+with zipfile.ZipFile('fraudTest.csv.zip', 'r') as zip_ref:
+    zip_ref.extractall()  # Extract to current directory
+
+
+print("Extracted files:", os.listdir())
+# 2. Load the Dataset
+df = pd.read_csv('fraudTest.csv')
+
+# 3. Explore the Data
+print(df.head())
+print(df.info())
+print(df['is_fraud'].value_counts())
+
+#  Data Cleaning
+df = df.dropna()  # remove missing values if any
+
+#Feature Selection (Drop non-numeric or irrelevant features)
+df = df.drop(['trans_date_trans_time', 'merchant', 'cc_num', 'first', 'last', 'street', 'city', 'state', 'job', 'dob', 'unix_time', 'merch_lat', 'merch_long'], axis=1)
+
+#  Encoding categorical variables
+df = pd.get_dummies(df, drop_first=True)
+
+#  Train-Test Split
+X = df.drop('is_fraud', axis=1)
+y = df['is_fraud']
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+
+#  Feature Scaling
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+
+#  Model Training - Random Forest
+model = RandomForestClassifier(n_estimators=100, random_state=42)
+model.fit(X_train_scaled, y_train)
+
+# Model Evaluation
+y_pred = model.predict(X_test_scaled)
+
+print("Confusion Matrix:\n", confusion_matrix(y_test, y_pred))
+print("\nClassification Report:\n", classification_report(y_test, y_pred))
+print("Accuracy Score:", accuracy_score(y_test, y_pred))
