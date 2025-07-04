@@ -1,0 +1,106 @@
+
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+import re
+import os
+import zipfile
+
+from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import LogisticRegression
+from sklearn.svm import LinearSVC
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+ 
+from google.colab import files
+uploaded = files.upload()
+
+
+import zipfile
+import os
+
+# Set the path to the uploaded zip file (make sure the filename matches exactly!)
+zip_path = "/content/archive (4).zip"
+
+# Set a folder to extract to
+extract_path = "/content/unzipped_data"
+
+# Extract
+with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+    zip_ref.extractall(extract_path)
+
+# Show extracted files
+print("Extracted files:", os.listdir(extract_path))
+
+
+df = pd.read_csv("/content/unzipped_data/IMDB Dataset.csv")
+
+
+import nltk
+nltk.download('stopwords')
+from nltk.corpus import stopwords
+stop_words = set(stopwords.words('english'))
+
+
+zip_path = "/content/archive (4).zip"
+with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+    zip_ref.extractall("/content")
+
+df = pd.read_csv("/content/IMDB Dataset.csv")
+print("Data loaded. Shape:", df.shape)
+
+
+print(df.isnull().sum())
+df.dropna(inplace=True)
+
+
+if 'description' not in df.columns and 'review' in df.columns:
+    df.rename(columns={'review': 'description'}, inplace=True)
+
+
+df = df[['description', 'genre']]
+
+
+def clean_text(text):
+    text = re.sub(r'[^\w\s]', '', text)  # remove punctuation
+    text = text.lower()  # lowercase
+    words = text.split()
+    words = [word for word in words if word not in stop_words]
+    return " ".join(words)
+
+
+df['clean_description'] = df['description'].apply(clean_text)
+
+
+tfidf = TfidfVectorizer(max_features=5000)
+X = tfidf.fit_transform(df['clean_description']).toarray()
+y = df['genre']
+
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+ 
+
+log_model = LogisticRegression(max_iter=200)
+log_model.fit(X_train, y_train)
+y_pred_log = log_model.predict(X_test)
+
+
+print("🔹 Logistic Regression Accuracy:", accuracy_score(y_test, y_pred_log))
+print("\nClassification Report:\n", classification_report(y_test, y_pred_log))
+
+plt.figure(figsize=(10, 6))
+sns.heatmap(confusion_matrix(y_test, y_pred_log), annot=True, fmt='d', cmap='Blues')
+plt.title("Logistic Regression - Confusion Matrix")
+plt.xlabel("Predicted")
+plt.ylabel("Actual")
+plt.show()
+
+
+svc_model = LinearSVC()
+svc_model.fit(X_train, y_train)
+y_pred_svc = svc_model.predict(X_test)
+
+
+print("🔹 SVM Accuracy:", accuracy_score(y_test, y_pred_svc))
+print("\nClassification Report (SVM):\n", classification_report(y_test, y_pred_svc))
